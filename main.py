@@ -7,6 +7,9 @@ from ultis import read_data, write_data
 import time
 from selenium.webdriver.common.keys import Keys
 import timeit
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
 
 import pandas as pd
 fbUrl = "https://chat.zalo.me/"
@@ -44,12 +47,8 @@ class Zalo:
             time.sleep(0.5)
             loginEle.click()
         except: pass
-    def verifyLogin(self):
-        try:
-            self.browser.find_element(By.ID,'input-phone')
-            return False
-        except:  # NoSuchElementException
-            return True                           
+   
+                           
     def load_cookie(self):
         self.fbUrl = "https://chat.zalo.me/"
         self.browser.get(self.fbUrl)
@@ -65,7 +64,7 @@ class Zalo:
                 inputPhone = self.browser.find_element(By.ID, 'contact-search-input')
                 inputPhone.clear()
                 inputPhone.send_keys(fbid)
-                time.sleep(3)          
+                time.sleep(2)          
                 if(self.browser.find_element(By.CLASS_NAME,'conv-item')):
                     a = self.browser.find_element(By.XPATH,"//*[@class='conv-item conv-rel  ']")
                     a.click()
@@ -73,8 +72,12 @@ class Zalo:
                     b = self.browser.find_element(By.ID,'ava_chat_box_view')
                     b.click()
                     time.sleep(1)
-                    name = self.browser.find_element(By.CSS_SELECTOR,"div[class='truncate friend-profile__display-name']")
+                    name=self.browser.find_element((By.CSS_SELECTOR, "div[class='truncate friend-profile__display-name']"))
+                    if not name:
+                        return None
+                    else : df_data["zalo_used"][i] = 'yes'
                     df_data["n"][i] = name.text
+
                     dayOfBirth = self.browser.find_element(By.XPATH,'/html/body/div[2]/div/div/div[2]/div/div/div/div[1]/div/div[3]/div/div/div[2]/span[2]')
                     df_data['fb_birthday'][i] = dayOfBirth.text
                     gender = self.browser.find_element(By.XPATH,'/html/body/div[2]/div/div/div[2]/div/div/div/div[1]/div/div[3]/div/div/div[1]/span[2]')
@@ -83,39 +86,25 @@ class Zalo:
                     d = self.browser.find_element(By.XPATH,'/html/body/div[2]/div/div/div[1]/div/div[2]/i')
                     time.sleep(0.5)
                     d.click()
-                    
-                else:
-                    pass
+                else:pass
             except: pass
         except:
             pass
-    def get_proxies(self):
-        option = Options()
-        self.browser.get("http://free-proxy-list.net")
-        time.sleep(1)
-        row = int(random.randint(1, 250))
-        ip = self.browser.find_element(By.XPATH,("//tbody/tr[{row}]/td[1]".format(row=row))).text
-        port = self.browser.find_element(By.XPATH,("//tbody/tr[{row}]/td[2]".format(row=row))).text
-        proxy = f"{ip}:{port}"
-        # print(proxy)
-        option.add_argument(f'--proxy-server=http://%{proxy}')
-        print(proxy)
-        return self.browser
+    
 
 
 if __name__ == '__main__':
 
     zalo = Zalo(depth=1)
     # get_proxies(browser)
-
-    if zalo.verifyLogin():
-        print("login successful")
-    else:
-        print("login failed")
-        exit()
+    
     time.sleep(1)
     df_data = pd.read_csv('raw_data/part-01.tsv', sep = '\t', dtype=str)
-    df_data = df_data[['fbid','n','gender','fb_birthday','new_t']]
+    df1 = pd.DataFrame(columns=['zalo_used'])
+    df_data = df_data.join(df1, how="outer")
+
+
+    df_data = df_data[['fbid','n','gender','fb_birthday','new_t','zalo_used']]
     # df_data.rename(columns = {'n':'zalo_name', 'fb_birthday':'zalo_birthday','new_t':'telephone'}, inplace = True)
     start = timeit.default_timer()
 
@@ -124,7 +113,6 @@ if __name__ == '__main__':
             zalo.browser.close()
             zalo.browser = webdriver.Chrome(executable_path="chromedriver/chromedriver")
             zalo.browser.refresh()
-        
         zalo.load_cookie()
         zalo.login()
         time.sleep(0.5)
@@ -135,6 +123,7 @@ if __name__ == '__main__':
         if(i%5==0):
             zalo.browser.close()
             zalo.browser = webdriver.Chrome(executable_path="chromedriver/chromedriver")
+        
     df_data.rename(columns = {'n':'zalo_name', 'fb_birthday':'zalo_birthday','new_t':'telephone'}, inplace = True)
 
     write_data(df_data,"preprocessed_data/1.tsv")   
